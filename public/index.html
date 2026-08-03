@@ -1,1 +1,111 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant PAN & Credit Verification Portal</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f5; padding: 20px; margin: 0; }
+        .container { max-width: 500px; margin: 30px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
+        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #219150; }
+        #resBox { margin-top: 20px; display: none; padding: 15px; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+        .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .grid-item { background: #f8f9fa; padding: 8px; border-radius: 5px; border: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <h2>🔍 Credit & PAN Check CRM</h2>
+    <div class="form-group">
+        <label>PAN Card Number</label>
+        <input type="text" id="panInput" placeholder="e.g. ABCDE1234F" maxlength="10" style="text-transform: uppercase;">
+    </div>
+    <div class="form-group">
+        <label>Monthly Salary / Income (₹)</label>
+        <input type="number" id="incomeInput" placeholder="e.g. 35000" value="30000">
+    </div>
+    <button onclick="runVerification()">Verify & Check Eligibility</button>
+
+    <div id="resBox"></div>
+</div>
+
+<script>
+async function runVerification() {
+    const pan = document.getElementById("panInput").value.trim().toUpperCase();
+    const income = document.getElementById("incomeInput").value;
+    const resBox = document.getElementById("resBox");
+
+    if (pan.length !== 10) {
+        alert("Kripya valid 10-digit PAN Card Number enter karein.");
+        return;
+    }
+
+    resBox.style.display = "block";
+    resBox.style.background = "#fff8e1";
+    resBox.style.color = "#b78103";
+    resBox.innerHTML = "⚡ Vercel Backend Se Verification Processing Me Hai...";
+
+    try {
+        // Vercel Serverless Function Call
+        const response = await fetch('/api/verify', {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({ pan: pan, income: income })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({ error: "Server response error" }));
+            throw new Error(errData.error || `HTTP Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            resBox.style.background = "#fce8e6";
+            resBox.style.color = "#c5221f";
+            resBox.innerHTML = `❌ Error: ${data.error}`;
+            return;
+        }
+
+        resBox.style.background = "#eef7ff";
+        resBox.style.color = "#1c3d5a";
+
+        resBox.innerHTML = `
+            <h3>📋 Customer Verification Report</h3>
+            <p><b>PAN Status:</b> ${data.panStatus}</p>
+            <hr>
+            <h4>📊 Credit Profile Details</h4>
+            <div class="report-grid">
+                <div class="grid-item"><b>CIBIL Score:</b> ${data.creditProfile.estimatedScore}</div>
+                <div class="grid-item"><b>Defaulter:</b> ${data.creditProfile.isDefaulter}</div>
+                <div class="grid-item"><b>Active EMIs:</b> ${data.creditProfile.activeEMIs} Running</div>
+                <div class="grid-item"><b>Overdue Amount:</b> ${data.creditProfile.overdueAmount}</div>
+            </div>
+            <hr>
+            <h4>💳 Eligibility Status</h4>
+            <p><b>Credit Card Approved:</b> ${data.eligibility.creditCardApproved ? "✅ Approved" : "❌ Not Eligible"}</p>
+            ${data.eligibility.creditCardApproved ? `<p><b>Eligible Cards:</b> ${data.eligibility.suggestedCards.join(", ")}</p>` : ''}
+            <p><b>Personal Loan Approved:</b> ${data.eligibility.personalLoanApproved ? "✅ Approved" : "❌ Not Eligible"}</p>
+            <p><b>Max Loan Limit:</b> ${data.eligibility.maxLoanLimit}</p>
+        `;
+
+    } catch (err) {
+        resBox.style.background = "#fce8e6";
+        resBox.style.color = "#c5221f";
+        resBox.innerHTML = `❌ Backend Connection Failed: ${err.message}`;
+        console.error("Fetch error:", err);
+    }
+}
+</script>
+
+</body>
+</html>
